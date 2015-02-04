@@ -4,6 +4,8 @@ from threading import Lock
 import numpy as np
 from toolz import merge, accumulate
 from into import discover, convert, append, into
+from blaze.utils import available_memory
+from datetime import datetime
 from datashape.dispatch import dispatch
 from datashape import DataShape
 from operator import add
@@ -55,14 +57,19 @@ def dask_to_float(x, **kwargs):
 
 
 def insert_to_ooc(out, arr):
-    lock = Lock()
 
     locs = [[0] + list(accumulate(add, bl)) for bl in arr.blockdims]
 
+    a, b = datetime.now(), datetime.now()
     def store(x, *args):
-        with lock:
-            ind = tuple([slice(loc[i], loc[i+1]) for i, loc in zip(args, locs)])
-            out[ind] = x
+        nonlocal b
+        nonlocal a
+        ind = tuple([slice(loc[i], loc[i+1]) for i, loc in zip(args, locs)])
+        out[ind] = x
+        a = b
+        b = datetime.now()
+        print("Available memory: %d\t\tDelay: %s" %
+                (available_memory(), b - a))
         return None
 
     name = 'store-%s' % arr.name
